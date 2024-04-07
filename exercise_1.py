@@ -15,7 +15,7 @@ IMG_WIDTH = 28
 # Constants - labels/classes
 LABELS = ["T-Shirt/Top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Boot"]
 N_CLASSES = 10
-CHECKPOINT_PATH = "tmp/best_model.weights.h5"
+CHECKPOINT_PATH = "tmp/best_model_exerc_1.weights.h5"
 
 # Callbacks
 BEST_MODEL_CHECKPOINT = tf.keras.callbacks.ModelCheckpoint(
@@ -114,9 +114,11 @@ elif args["action"] == "test":
     test_loss, test_acc = model.evaluate(x_test, y_test)
     print('Test accuracy:', test_acc)
 
-    # Show the confusion matrix
     y_pred = np.argmax(model.predict(x_test), axis=-1)
     cm = confusion_matrix(np.argmax(y_test, axis=-1), y_pred, labels=np.arange(N_CLASSES))
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+    
+    # Plot confusion matrix with rotated x-labels
     disp.plot(cmap=plt.cm.Blues)
+    plt.xticks(rotation=45)  # Rotate x-labels by 45 degrees
     plt.show()
