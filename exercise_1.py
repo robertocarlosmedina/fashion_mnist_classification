@@ -1,24 +1,26 @@
-# imports que provalmente serao necessarios
-import tensorflow as tf
-from tensorflow.keras import layers
-
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+
+import tensorflow as tf
+from tensorflow.keras import layers
 
 from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import confusion_matrix
 
-# constantes - dimensao das imagens
+# Constants - Image sizes
 IMG_HEIGHT = 28
 IMG_WIDTH = 28
 
-# constantes - labels/classes
+# Constants - labels/classes
 LABELS = ["T-Shirt/Top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Boot"]
 N_CLASSES = 10
+CHECKPOINT_PATH = "tmp/best_model.weights.h5"
 
-# callbacks
+# Callbacks
 BEST_MODEL_CHECKPOINT = tf.keras.callbacks.ModelCheckpoint(
-    filepath="tmp/best_model.weights.h5",      # ficheiro onde serao guardados os pesos do "melhor modelo"
+    # file where the weights of the "best model" will be stored
+    filepath=CHECKPOINT_PATH,
     save_weights_only=True,
     monitor='val_loss',
     mode='min',
@@ -26,29 +28,31 @@ BEST_MODEL_CHECKPOINT = tf.keras.callbacks.ModelCheckpoint(
 
 EARLY_STOPPING = tf.keras.callbacks.EarlyStopping(
     monitor='val_loss',
-    patience=10)
+    patience=15)
 
-# carregar o dataset
+# Load dataset
 dataset = tf.keras.datasets.fashion_mnist
 (x_train, y_train), (x_test, y_test) = dataset.load_data()
 
-# normalização
+# Normalization
 x_train = x_train / 255.0
 x_test = x_test / 255.0
 
-# transformar vetor das labels em matriz - adequado para rede multiclasse mas nao para a binaria
+# transform label vector into matrix - suitable for multiclass network but not for binary
 y_train = tf.keras.utils.to_categorical(y_train,N_CLASSES)
 y_test = tf.keras.utils.to_categorical(y_test,N_CLASSES)
 
-"""Continuar a partir da daqui. Resumo das tarefas:
+"""
+Continue from here. Task summary:
    
-   a)	Obter o conjunto de validação;
-   b)	Construir o modelo;
-   c)	Compilar a rede;
-   d)	Treinar o modelo – max 50 épocas, de pref. a usar callbacks;
-   e)	Gráfico que mostre a evolução do treino;
-   f)	Cálculo dos acertos no conjunto de teste;
-   g)	Mostrar a matriz de confusão."""
+   a) Obtain the validation set;
+   b) Build the model;
+   c) Compile the network;
+   d) Train the model – max 50 epochs, preferably. to use callbacks;
+   e) Graph showing the evolution of training;
+   f) Calculation of hits in the test set;
+   g) Show the confusion matrix.
+"""
 
 val_split = 0.2
 val_size = int(len(x_train) * val_split)
@@ -59,9 +63,10 @@ y_val = y_train[-val_size:]
 x_train = x_train[:-val_size]
 y_train = y_train[:-val_size]
 
-# Construir o modelo
+# Build model structure
 model = tf.keras.Sequential([
-    layers.Reshape((IMG_HEIGHT, IMG_WIDTH, 1), input_shape=(IMG_HEIGHT, IMG_WIDTH)),  # Reshape to add channel dimension
+    # Reshape to add channel dimension
+    layers.Reshape((IMG_HEIGHT, IMG_WIDTH, 1), input_shape=(IMG_HEIGHT, IMG_WIDTH)),
     layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
     layers.MaxPooling2D((2, 2)),
     layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
@@ -71,32 +76,47 @@ model = tf.keras.Sequential([
     layers.Dense(N_CLASSES, activation='softmax')
 ])
 
-# Compilar a rede
+# Compile model Network
 model.compile(optimizer='adam',
               loss='categorical_crossentropy',
               metrics=['accuracy'])
+try:
+    model.load_weights(CHECKPOINT_PATH)
+except:
+    print("Model weights file not found")
 
-# Treinar o modelo
-history = model.fit(x_train, y_train, epochs=50, batch_size=32,
-                    validation_data=(x_val, y_val),
-                    callbacks=[BEST_MODEL_CHECKPOINT, EARLY_STOPPING])
+args_parser = argparse.ArgumentParser()
 
-# Gráfico que mostra a evolução do treino
-plt.plot(history.history['accuracy'], label='accuracy')
-plt.plot(history.history['val_accuracy'], label='val_accuracy')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.ylim([0, 1])
-plt.legend(loc='lower right')
-plt.show()
+args_parser.add_argument(
+    "-a", "--action", required=True, choices=["train", "test"],
+    help="Actions regarding the model."
+)
 
-# Cálculo dos acertos no conjunto de teste
-test_loss, test_acc = model.evaluate(x_test, y_test)
-print('Test accuracy:', test_acc)
+args = vars(args_parser.parse_args())
 
-# Mostrar a matriz de confusão
-y_pred = np.argmax(model.predict(x_test), axis=-1)
-cm = confusion_matrix(np.argmax(y_test, axis=-1), y_pred, labels=np.arange(N_CLASSES))
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
-disp.plot(cmap=plt.cm.Blues)
-plt.show()
+# Train Model
+if args["action"] == "train":
+    history = model.fit(x_train, y_train, epochs=50, batch_size=32,
+                        validation_data=(x_val, y_val),
+                        callbacks=[BEST_MODEL_CHECKPOINT, EARLY_STOPPING])
+
+    # Graph that shows the evolution of training
+    plt.plot(history.history['accuracy'], label='accuracy')
+    plt.plot(history.history['val_accuracy'], label='val_accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.ylim([0, 1])
+    plt.legend(loc='lower right')
+    plt.show()
+
+# Calculation of hits on the test set
+elif args["action"] == "test":
+    test_loss, test_acc = model.evaluate(x_test, y_test)
+    print('Test accuracy:', test_acc)
+
+    # Show the confusion matrix
+    y_pred = np.argmax(model.predict(x_test), axis=-1)
+    cm = confusion_matrix(np.argmax(y_test, axis=-1), y_pred, labels=np.arange(N_CLASSES))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=LABELS)
+    disp.plot(cmap=plt.cm.Blues)
+    plt.show()
